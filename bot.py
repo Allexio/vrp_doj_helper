@@ -1,10 +1,23 @@
-from random import randint
-import discord
-from ast import literal_eval
-from datetime import datetime
+
+# default libraries
+from ast import literal_eval # to read history
+from datetime import datetime # to get current time
+from os import environ # to read bot auth key from env variables
+from random import randint # to generate case numbers
+
+# custom libraries
+import discord # discord library
+
+# local libraries
+from bbcode_generators import *
+
+# version info
+VERSION = 0.5
 
 # channel where information should be output when someone takes an action
-OUTPUT_CHANNEL = 1009172034670034974
+TRIAL_MANAGEMENT_CHANNEL = 1009172034670034974
+RECRUITMENT_CHANNEL = 1005113728586498158
+
 
 # if a request is currently being validated, its number will be here
 request_being_validated = 000000
@@ -25,8 +38,6 @@ def load_history() -> dict:
         with open("history.py", 'w') as file:
             file.write("{}")
             history = {}
-    #for request_number in history:
-    #    history[request_number]["created_timestamp"] = datetime.fromtimestamp(history[request_number]["created_timestamp"])
 
     print("Succesfully loaded " + str(len(history)) + " previous trials")
     return history
@@ -34,6 +45,21 @@ def load_history() -> dict:
 @bot.event
 async def on_ready():
     print(f"We have logged in as {bot.user}")
+
+
+@bot.slash_command(name = "help", description = "Get some help on using the bot")
+async def help(ctx):
+    await ctx.respond("Hey there and thanks for using the DoJ template creator. You can contact <@108986791696048128> if you need any information regarding this bot.")
+
+@bot.slash_command(name = "email-recruitment", description = "Create a new application response (validation or rejection) email from a bbcode template.")
+async def email_recruitment(ctx):
+    modal = recruitment_modal(title="Create an application response email")
+    await ctx.send_modal(modal)
+
+@bot.slash_command(name = "email", description = "Create a new email from a bbcode template.")
+async def email(ctx):
+    modal = email_modal(title="Create a standard email")
+    await ctx.send_modal(modal)
 
 @bot.slash_command(name = "create-trial-request", description = "Create a new trial request from a bbcode template.")
 async def trial_request(ctx):
@@ -73,7 +99,7 @@ async def validate_trial_request(ctx, request_number: int):
     # if not, ask if the user wants to reject or accept it
     global request_being_validated
     request_being_validated = request_number
-    await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True)
+    await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
 
 @bot.slash_command(name = "request-details", description = "Request details of a trial request")
 async def request_details(ctx, request_number: int):
@@ -139,7 +165,7 @@ class validate_view(discord.ui.View):
         history[request_being_validated]["state"] = "rejected"
         save_history()
         await interaction.response.send_message("You rejected the trial #" + str(request_being_validated), ephemeral=True)
-        channel = bot.get_channel(OUTPUT_CHANNEL)
+        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has rejected request #" + str(request_being_validated))
         request_being_validated = 0
 
@@ -150,11 +176,56 @@ class validate_view(discord.ui.View):
         history[request_being_validated]["state"] = "validated"
         save_history()
         await interaction.response.send_message("You approved the trial #" + str(request_being_validated), ephemeral=True)
-        channel = bot.get_channel(OUTPUT_CHANNEL)
+        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has approved request #" + str(request_being_validated))
         request_being_validated = 0
         
     
+class email_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Name(s) of the recipient(s)"))
+        self.add_item(discord.ui.InputText(label="Topic of the email"))
+        self.add_item(discord.ui.InputText(label="Body of the email", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        recipient = self.children[0].value
+        topic = self.children[1].value
+        body = self.children[2].value
+        bbcode_email = format_to_code(email_bbcode_generator(recipient, topic, body))
+        await interaction.response.send_message(bbcode_email, ephemeral=True)
+
+class recruitment_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Name of the candidate"))
+        self.add_item(discord.ui.InputText(label="Accept or Reject"))
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        candidate = self.children[0].value
+        type = self.children[1].value
+        if type.lower() in ["validate", "y", "approve", "accept"]:
+            type = "recruitment-approval"
+            simple_type = " an approval "
+        elif type.lower() in ["reject", "n", "deny"]:
+            type = "recruitment-denial"
+            simple_type = " a rejection "
+        else:
+            await interaction.response.send_message("Could not understand whether application was denied or accepted.", ephemeral=True)
+            return
+        
+        # generate bbcode
+        bbcode_email = format_to_code(email_bbcode_generator(candidate, type=type))
+
+        # inform faction management in the recruitment channel
+        channel = bot.get_channel(RECRUITMENT_CHANNEL)
+        await channel.send("<@" + str(interaction.user.id) + "> has generated" + simple_type + "email for candidate **" + candidate + "**")
+        await interaction.response.send_message(bbcode_email, ephemeral=True)
+
 class trial_request_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -203,7 +274,7 @@ class trial_request_modal(discord.ui.Modal):
 
         save_history()
 
-        channel = bot.get_channel(OUTPUT_CHANNEL)
+        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Defense attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
 
         bbcode = request_bbcode_generator(defendants, description, charges, pleas, evidence, request_number)
@@ -259,84 +330,21 @@ class trial_request_rebuttal_modal(discord.ui.Modal):
         # Update the state of the ticket
         history[request_being_rebutted]["state"] = "rebutted"
 
-        channel = bot.get_channel(OUTPUT_CHANNEL)
-        await channel.send("Prosecutor <@" + str(interaction.user.id) + "> has responded to request #" + str(request_being_rebutted))
-
+        # Save history to file
         save_history()
 
-        await interaction.response.send_message("Success: ", ephemeral=True)
+        # Get channel
+        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
 
-def request_bbcode_generator(defendants: list, description: str, charges: list, pleas: list, evidence: list, request_number: int):
-    """bbcode generator for trial request templates"""
-    
-    if len(defendants) > 1:
-        plural = "s"
-        reverse_plural = ""
-    else:
-        plural = ""
-        reverse_plural = "s"
-    
-    if len(charges) > 1:
-        charge_plural = "s"
-    else:
-        charge_plural = ""
-    
+        # Get trial start time
+        trial_time = int(datetime.now().timestamp()+900)
+        await channel.send("<@" + str(interaction.user.id) + ">, <@" + str(history[request_being_rebutted]["defense"]) + ">, <@" + str(history[request_being_rebutted]["judge"]) + "> a trial you are participating in (#" + str(request_being_rebutted) + ") will start <t:" + str(trial_time) + ":R>")
+
+        
+
+        await interaction.response.send_message("You have succesfully responded to request #" + str(request_being_rebutted), ephemeral=True)
 
 
-    join_string = "; "
-    defendants_list_string = join_string.join(defendants)
-    # INTRO section -> partly replace with an image?
-    bbcode = "[divbox=lightblue]"
-    bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
-    bbcode += "\n[center][size=150][b]LOS SANTOS CRIMINAL COURT DIVISION[/b][/size][/center]"
-    bbcode += "\n[list=none][/list]"
-    
-    bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
-    bbcode += "\n[b]THE STATE OF SAN ANDREAS[/b][list=none][/list][center]v[/center][list=none][/list][b][center]" + defendants_list_string + "[/center][/b]"
-    bbcode += "\n[/divbox][/float]"
-    
-    bbcode += "\n[float=right][divbox=gold]"
-    bbcode += "\n[center]BENCH TRIAL REQUEST[/center]"
-    bbcode += "\n[center]#" + str(request_number) + "[/center]"
-    bbcode += "\n[/divbox]"
-    
-    bbcode += "\n[/float][color=white][list=none].[/list][list=none].[/list][list=none].[/list][list=none].[/list][/color][/divbox]"
-
-    # DESCRIPTION section
-    bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
-    bbcode += "\n" + description
-
-    # CHARGES and PLEAS section
-    bbcode += "\n\n[center][b][u]CHARGES & PLEAS[/u][/b][/center]"
-
-    bbcode += "\n[b]" + defendants_list_string + "[/b], claim" + reverse_plural + " defense for the following charge" + charge_plural +  ":"
-    bbcode += "\n[list=1]"
-
-
-    
-
-    # list out the charges and pleas
-    
-    for iterator, charge in enumerate(charges):
-        bbcode += "\n[*]For the charge of [b]" + charge + "[/b], the defendant" + plural + " plead" + reverse_plural + " [b][u]" + pleas[iterator] + "[/u][/b]"
-    bbcode += "\n[/list]"
-
-
-    # EVIDENCE section
-    bbcode += "\n\n[center][b][u]EVIDENCE[/u][/b][/center]"
-    bbcode += "\n[list=0]"
-
-    # list out required evidence
-    evidence_increment = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-    for iterator, evidence_item in enumerate(evidence):
-        bbcode += "\n[*]Exhibit " + evidence_increment[iterator] + ": " + evidence_item
-
-    bbcode += "\n[/list]"
-    return bbcode
-
-def rebuttal_bbcode_generator(defendants: list, evidence: list, plea: list, charges: list):
-    """bbcode generator for trial request rebuttal templates"""
-    pass
 
 def format_to_code(bbcode: str):
     discord_code_snippet = "```html\n" + bbcode + "\n```"
@@ -362,5 +370,8 @@ def save_history():
 # load previously created trials from a file
 history = load_history()
 
-# run the bot
-bot.run("")
+try:
+    # run the bot
+    bot.run(environ['DOJ_BOT'])
+except KeyError:
+    print("FATAL: Could not find the 'DOJ_BOT' environment variable, please make sure that the environment variable has been properly set and try again.")

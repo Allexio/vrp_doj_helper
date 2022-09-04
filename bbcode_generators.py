@@ -112,14 +112,14 @@ If you are still inclined to join us, we encourage you to send us another applic
     bbcode += "\n[float=right][align=right]"
     bbcode += "\n[b][size=120]San Andreas Department of Justice[/size][/b]"
     bbcode += "\n[size=115]" + office + "[/size]"
-    bbcode += "\n[size=110] " + topic + " [/size]"
+    bbcode += "\n[size=110][u]" + topic + "[/u][/size]"
     bbcode += "\n[size=105][i]" + day_name + ", " + month + " "  + str(day_number) + ", "  + str(year) + "[/i][/size]"
     bbcode += "\n[/align][/float]"
 
     # recipient + body
+    bbcode += "\n[list=none]\n" # increment the body so it's not stuck to left border
     bbcode += "\n\n\n\n" + "Dear [b]" + recipient + "[/b],"
-    bbcode += "\n[list=none]\n" # increment the body paragraph
-    bbcode += body # add in the body, either generated or custom
+    bbcode += "\n\n" + body # add in the body, either generated or custom
     bbcode += "\n\n\n" + "Regards,"
     bbcode += "\n[/list]" # close the increment
 

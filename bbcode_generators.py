@@ -72,13 +72,14 @@ def rebuttal_bbcode_generator(defendants: list, evidence: list, plea: list, char
     """bbcode generator for trial request rebuttal templates"""
     pass
 
-def email_bbcode_generator(recipient: str, topic="", body="", type="standard"):
+def email_bbcode_generator(recipient: str, office: str, topic="", body="", type="standard"):
     """bbcode generator for emails"""
 
     # First obtain date in readable format
     current_datetime = datetime.now()
-    day = current_datetime.day
-    month = current_datetime.month
+    day_name = current_datetime.strftime("%A")
+    day_number = current_datetime.day
+    month = current_datetime.strftime("%B")
     year = current_datetime.year
 
     if type == "recruitment-approval":
@@ -101,18 +102,26 @@ Unfortunately your application has not met this threshold.
 
 If you are still inclined to join us, we encourage you to send us another application in three weeks."""
 
-    bbcode = "[divbox=#3b3b3b]​"
-    bbcode += "\n[img]https://imgur.com/GiiwLit.png[/img]"
-    bbcode += "\n[divbox=#97bccf]"
-    bbcode += "\n[img]https://imgur.com/OWdmMgZ.png[/img]"
+    # surrounding boxes
+    bbcode = "[divbox=#005A9C][divbox=#e1eeff]"
+
+    # top left logo
+    bbcode += "​[img]https://cdn.discordapp.com/attachments/1009172034670034974/1015896612008116274/DOJSeal160.png[/img]"
+
+    # top right details section
     bbcode += "\n[float=right][align=right]"
-    bbcode += "\n[b][size=150]San Andreas Department of Justice[/size][/b]"
-    bbcode += "\n[size=115]" + topic.upper() + "[/size]"
-    bbcode += "\n[size=95]" + str(year) + "/" + str(month) + "/" + str(day) + "[/size]"
+    bbcode += "\n[b][size=120]San Andreas Department of Justice[/size][/b]"
+    bbcode += "\n[size=115]" + office + "[/size]"
+    bbcode += "\n[size=110] " + topic + " [/size]"
+    bbcode += "\n[size=105][i]" + day_name + ", " + month + " "  + str(day_number) + ", "  + str(year) + "[/i][/size]"
     bbcode += "\n[/align][/float]"
-    bbcode += "\n\n\n\n"
-    bbcode += "\n[align=left][size=125] Dear " + recipient + ","
+
+    # recipient + body
+    bbcode += "\n\n\n\n" + "Dear [b]" + recipient + "[/b],"
     bbcode += "\n\n" + body
-    bbcode += "\n\nRegards,\n\n"
+    bbcode += "\n\n\n" + "Regards,"
+
+    # close the surrounding boxes
+    bbcode += "\n[/divbox][/divbox]"
 
     return bbcode

@@ -7,6 +7,7 @@ from random import randint # to generate case numbers
 
 # custom libraries
 import discord # discord library
+from discord.commands import Option
 
 # local libraries
 from bbcode_generators import *
@@ -61,13 +62,14 @@ async def email(ctx):
     modal = email_modal(title="Create a standard email")
     await ctx.send_modal(modal)
 
-@bot.slash_command(name = "create-trial-request", description = "Create a new trial request from a bbcode template.")
-async def trial_request(ctx):
+@bot.slash_command(name = "defend", description = "Initiate a new trial request or issue a response with pleas.")
+async def trial_request(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
     modal = trial_request_modal(title="Create a trial request")
     await ctx.send_modal(modal)
 
-@bot.slash_command(name = "create-trial-request-rebuttal", description = "Create a new trial request rebuttal from a bbcode template.")
-async def trial_request_rebuttal(ctx, request_number: int):
+
+@bot.slash_command(name = "prosecute", description = "Initiate a new trial request or issue a rebuttal")
+async def trial_request_rebuttal(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
     # manage all cases where request should not be rebutted
     if history[request_number]["state"] == "open":
         await ctx.respond("This request has not yet been processed by a judge.", ephemeral=True)
@@ -134,7 +136,7 @@ async def request_details(ctx, request_number: int):
     if "judge" in trial_info:
         embedVar.add_field(name="Judge", value="<@"+str((trial_info["judge"]))+">", inline=True)
     if "prosecutor" in trial_info:
-        embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["judge"]))+">", inline=True)
+        embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["prosecutor"]))+">", inline=True)
 
     # format charges and pleas together
     charges_and_pleas = ""
@@ -156,6 +158,7 @@ class validate_view(discord.ui.View):
     @discord.ui.button(label="Cancel", row=0, style=discord.ButtonStyle.secondary)
     async def cancel_button_callback(self, validate_trial_request, interaction):
         await interaction.response.send_message("You cancelled the validation request.", ephemeral=True)
+        global request_being_validated
         request_being_validated = 0
 
     @discord.ui.button(label="Reject", row=0, style=discord.ButtonStyle.danger)
@@ -194,7 +197,8 @@ class email_modal(discord.ui.Modal):
         recipient = self.children[0].value
         topic = self.children[1].value
         body = self.children[2].value
-        bbcode_email = format_to_code(email_bbcode_generator(recipient, topic, body))
+        office = interpret_office_name(interaction.user.roles)
+        bbcode_email = format_to_code(email_bbcode_generator(recipient, office, topic, body))
         await interaction.response.send_message(bbcode_email, ephemeral=True)
 
 class recruitment_modal(discord.ui.Modal):
@@ -205,7 +209,7 @@ class recruitment_modal(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Accept or Reject"))
 
     async def callback(self, interaction: discord.Interaction):
-        
+        office = interpret_office_name(interaction.user.roles)
         candidate = self.children[0].value
         type = self.children[1].value
         if type.lower() in ["validate", "y", "approve", "accept"]:
@@ -219,7 +223,7 @@ class recruitment_modal(discord.ui.Modal):
             return
         
         # generate bbcode
-        bbcode_email = format_to_code(email_bbcode_generator(candidate, type=type))
+        bbcode_email = format_to_code(email_bbcode_generator(candidate, office, type=type))
 
         # inform faction management in the recruitment channel
         channel = bot.get_channel(RECRUITMENT_CHANNEL)
@@ -345,6 +349,29 @@ class trial_request_rebuttal_modal(discord.ui.Modal):
         await interaction.response.send_message("You have succesfully responded to request #" + str(request_being_rebutted), ephemeral=True)
 
 
+def interpret_office_name(user_roles: list):
+    """Takes a user's roles and returns the closest matching office name"""
+
+    user_role_names = []
+    for role in user_roles:
+        user_role_names.append(role.name)
+
+    if "District Attorney" in user_role_names or "Assistant District Attorney" in user_role_names:
+        office = "Office of the District Attorney"
+    elif "Attorney General" in user_role_names:
+        office = "Office of the Attorney General"
+    elif "Chief Public Defender" in user_role_names or "Assistant Chief Public Defender" in user_role_names:
+        office = "Office of Public Defence"
+    elif "Judge" in user_role_names or "Magistrate" in user_role_names:
+        office = "Office of the Court of San Andreas"
+    elif "Office of Public Defense" in user_role_names:
+        office = "Office of Public Defence"
+    elif "Office of the District Attorney" in user_role_names:
+        office = "Office of the District Attorney"
+    else:
+        office = "Unknown Office"
+
+    return office
 
 def format_to_code(bbcode: str):
     discord_code_snippet = "```html\n" + bbcode + "\n```"

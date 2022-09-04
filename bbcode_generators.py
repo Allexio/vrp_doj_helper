@@ -118,8 +118,10 @@ If you are still inclined to join us, we encourage you to send us another applic
 
     # recipient + body
     bbcode += "\n\n\n\n" + "Dear [b]" + recipient + "[/b],"
-    bbcode += "\n\n" + body
+    bbcode += "\n[list=none]\n" # increment the body paragraph
+    bbcode += body # add in the body, either generated or custom
     bbcode += "\n\n\n" + "Regards,"
+    bbcode += "\n[/list]" # close the increment
 
     # close the surrounding boxes
     bbcode += "\n[/divbox][/divbox]"

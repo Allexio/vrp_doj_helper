@@ -4,16 +4,17 @@ from ast import literal_eval # to read history
 from datetime import datetime # to get current time
 from os import environ # to read bot auth key from env variables
 from random import randint # to generate case numbers
+from json import load, dump
 
 # custom libraries
 import discord # discord library
 from discord.commands import Option
 
-# local libraries
+# local source files
 from bbcode_generators import *
 
 # version info
-VERSION = 0.5
+VERSION = 0.6
 
 # channel where information should be output when someone takes an action
 CIVIL_TRIAL_MANAGEMENT_CHANNEL = 1009172034670034974
@@ -31,11 +32,11 @@ bot = discord.Bot()
 
 def load_history() -> dict:
     try:
-        with open("history.py", 'r') as file:
-            history = literal_eval(file.read())
+        with open("data/case_history.json", 'r') as file:
+            history = load(file)
     except FileNotFoundError:
         print("history file not found, creating a new history file")
-        with open("history.py", 'w') as file:
+        with open("data/case_history.json", 'w') as file:
             file.write("{}")
             history = {}
 
@@ -461,8 +462,8 @@ def request_number_generator():
 
 def save_history():
     """Saves any update to the trial history to a file"""
-    with open("history.py", 'w') as file:
-        file.write(str(history))
+    with open("data/case_history.json", 'w') as file:
+        dump(history, file)
 
 # execution starts here:
 

@@ -30,18 +30,41 @@ validating_judge = ""
 
 bot = discord.Bot()
 
-def load_history() -> dict:
+def load_data() -> dict:
+    # case history
     try:
         with open("data/case_history.json", 'r') as file:
             history = load(file)
     except FileNotFoundError:
-        print("history file not found, creating a new history file")
+        print("Case history file not found, creating a new history file")
         with open("data/case_history.json", 'w') as file:
             file.write("{}")
             history = {}
+    print("Succesfully loaded " + str(len(history)) + " previous trials.")
 
-    print("Succesfully loaded " + str(len(history)) + " previous trials")
-    return history
+    # attorney registry
+    try:
+        with open("data/attorney_registry.json", 'r') as file:
+            attorney_registry = load(file)
+    except FileNotFoundError:
+        print("Case history file not found, creating a new history file")
+        with open("data/attorney_registry.json", 'w') as file:
+            file.write("{}")
+            attorney_registry = {}
+    print("Succesfully loaded " + str(len(attorney_registry)) + " admitted attorneys.")
+
+    # quiz dictionary
+    try:
+        with open("data/flash_cards.json", 'r') as file:
+            flash_cards = load(file)
+    except FileNotFoundError:
+        print("Case history file not found, creating a new history file")
+        with open("data/flash_cards.json", 'w') as file:
+            file.write("{}")
+            flash_cards = {}
+    print("Succesfully loaded " + str(len(flash_cards)) + " flash cards.")
+
+    return history, attorney_registry, flash_cards
 
 @bot.event
 async def on_ready():
@@ -60,6 +83,25 @@ async def email_recruitment(ctx):
 async def email(ctx):
     modal = email_modal(title="Create a standard email")
     await ctx.send_modal(modal)
+
+@bot.slash_command(name = "admit_attorney", description = "Admit a new attorney, letting them then register.")
+async def admit_attorney(ctx, attorney: discord.Option(discord.User)):
+    
+    if attorney.id in attorney_registry:
+        await ctx.respond("This attorney is already admitted.", ephemeral=True)
+    else:
+        attorney_registry[attorney.id] = {} # add a new line in DB
+        save_data("registry")
+        await attorney.send("Hi,\nYou have been admitted as an attorney. Please use the `/register` command to fully register.\nThank you")
+        await ctx.respond("You have registered  <@" + str(attorney.id) + "> as an admitted attorney.", ephemeral=True)
+
+@bot.slash_command(name = "register", description = "Register as an attorney")
+async def register(ctx):
+    if str(ctx.author.id) in attorney_registry:
+        modal = registration_modal(title="Register as an attorney")
+        await ctx.send_modal(modal)
+    else:
+        await ctx.respond("You have not been admitted and therefore can not register.\nPlease contact your superior if you have been told you have passed the bar exam.", ephemeral=True)
 
 @bot.slash_command(name = "defend", description = "Initiate a new trial request or issue a response with pleas.")
 async def defend(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
@@ -94,7 +136,6 @@ async def trial_request_rebuttal(ctx, request_number: Option(int, "If case is al
     await ctx.send_modal(modal)
 
 
-
 @bot.slash_command(name = "validate-trial-request", description = "Accept or reject a trial request as a judge.")
 async def validate_trial_request(ctx, request_number: int):
     # first print the details of the ticket
@@ -108,10 +149,11 @@ async def validate_trial_request(ctx, request_number: int):
     request_being_validated = request_number
     await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
 
-@bot.slash_command(name = "request-details", description = "Request details of a trial request")
+@bot.slash_command(name = "info", description = "Request details of a case or user")
 async def request_details(ctx, request_number: int):
     if int(request_number) not in history:
         await ctx.respond("This trial request # does not exist", ephemeral=True)
+        return
 
     trial_info = history[int(request_number)]
 
@@ -175,7 +217,7 @@ class validate_view(discord.ui.View):
         global request_being_validated
         history[request_being_validated]["judge"] = interaction.user.id
         history[request_being_validated]["state"] = "rejected"
-        save_history()
+        save_data("history")
         await interaction.response.send_message("You rejected the trial #" + str(request_being_validated), ephemeral=True)
         if history[request_being_validated]["type"] == "criminal":
             channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
@@ -189,15 +231,14 @@ class validate_view(discord.ui.View):
         global request_being_validated
         history[request_being_validated]["judge"] = interaction.user.id
         history[request_being_validated]["state"] = "validated"
-        save_history()
+        save_data("history")
         await interaction.response.send_message("You approved the trial #" + str(request_being_validated), ephemeral=True)
         if history[request_being_validated]["type"] == "criminal":
             channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
         else:
             channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has approved request #" + str(request_being_validated))
-        request_being_validated = 0
-        
+        request_being_validated = 0       
     
 class email_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -245,6 +286,43 @@ class recruitment_modal(discord.ui.Modal):
         await channel.send("<@" + str(interaction.user.id) + "> has generated" + simple_type + "email for candidate **" + candidate + "**")
         await interaction.response.send_message(bbcode_email, ephemeral=True)
 
+    
+class registration_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="First Name"))
+        self.add_item(discord.ui.InputText(label="Last Name"))
+        self.add_item(discord.ui.InputText(label="Phone number"))
+        self.add_item(discord.ui.InputText(label="Timezone in UTC format (ex: UTC+5/UTC-2)"))
+
+    async def callback(self, interaction: discord.Interaction):
+
+        # check phone number is proper format        
+        phone = self.children[2].value
+        if len(phone) != 6:
+            await interaction.response.send_message("You have not provided a valid phone number. Please check and try again.", ephemeral=True)
+            return
+        
+        # check timezone is in proper format
+        user_timezone = self.children[3].value
+        if user_timezone.startswith("UTC+") or user_timezone.startswith("UTC-"):
+            pass
+        else:
+            await interaction.response.send_message("You have not provided a valid timezone. Please check the provided examples and try again.", ephemeral=True)
+            return
+        user_id = str(interaction.user.id)
+
+        #TODO: Add private attorney role when a private attorney registers
+
+        attorney_registry[user_id]["full_name"] = self.children[0].value + " " + self.children[1].value
+        attorney_registry[user_id]["phone"] = phone
+        attorney_registry[user_id]["timezone"] = user_timezone
+        save_data("registry")
+
+        await interaction.response.send_message("You have successfully registered. You can check your info at any time with /info.", ephemeral=True)
+
+
 class trial_request_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -278,7 +356,7 @@ class trial_request_modal(discord.ui.Modal):
 
         py_timestamp = datetime.now()
 
-        request_number = request_number_generator()
+        request_number = number_generator()
 
         # save data to history
         history[request_number] = {}
@@ -292,7 +370,7 @@ class trial_request_modal(discord.ui.Modal):
         history[request_number]["created_timestamp"] = py_timestamp.timestamp()
         history[request_number]["type"] = "criminal"
 
-        save_history()
+        save_data("history")
 
         channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Defense attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
@@ -336,7 +414,7 @@ class civil_request_modal(discord.ui.Modal):
 
         py_timestamp = datetime.now()
 
-        request_number = request_number_generator()
+        request_number = number_generator()
 
         # save data to history
         history[request_number] = {}
@@ -348,7 +426,7 @@ class civil_request_modal(discord.ui.Modal):
         history[request_number]["plaintiffs"] = plaintiffs
         history[request_number]["created_timestamp"] = py_timestamp.timestamp()
 
-        save_history()
+        save_data("history")
 
         channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
@@ -408,7 +486,7 @@ class trial_request_rebuttal_modal(discord.ui.Modal):
         history[request_being_rebutted]["state"] = "rebutted"
 
         # Save history to file
-        save_history()
+        save_data("history")
 
         # Get channel
         channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
@@ -450,7 +528,7 @@ def format_to_code(bbcode: str):
     discord_code_snippet = "```html\n" + bbcode + "\n```"
     return discord_code_snippet
 
-def request_number_generator():
+def number_generator():
     """Generates a unique 6 digit number"""
     # pick a random 6 digit number
     unique_request_number = randint(100000, 999999)
@@ -460,15 +538,22 @@ def request_number_generator():
         unique_request_number = randint(100000, 999999)
     return unique_request_number
 
-def save_history():
+def save_data(data_to_save):
     """Saves any update to the trial history to a file"""
-    with open("data/case_history.json", 'w') as file:
-        dump(history, file)
+    if data_to_save == "history":
+        with open("data/case_history.json", 'w') as file:
+            dump(history, file)
+    elif data_to_save == "registry":
+        with open("data/attorney_registry.json", 'w') as file:
+            dump(attorney_registry, file)
+    elif data_to_save == "flash_cards":
+        with open("data/flash_cards.json", 'w') as file:
+            dump(flash_cards, file)
 
 # execution starts here:
 
 # load previously created trials from a file
-history = load_history()
+history, attorney_registry, flash_cards = load_data()
 
 try:
     # run the bot

@@ -90,7 +90,7 @@ async def admit_attorney(ctx, attorney: discord.Option(discord.User)):
     if attorney.id in attorney_registry:
         await ctx.respond("This attorney is already admitted.", ephemeral=True)
     else:
-        attorney_registry[attorney.id] = {} # add a new line in DB
+        attorney_registry[str(attorney.id)] = {} # add a new line in DB
         save_data("registry")
         await attorney.send("Hi,\nYou have been admitted as an attorney. Please use the `/register` command to fully register.\nThank you")
         await ctx.respond("You have registered  <@" + str(attorney.id) + "> as an admitted attorney.", ephemeral=True)
@@ -114,7 +114,7 @@ async def civil_trial_request(ctx):
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "prosecute", description = "Initiate a new trial request or issue a rebuttal")
-async def trial_request_rebuttal(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
+async def trial_request_rebuttal(ctx, request_number: Option(str, "If case is already created, enter case #", required = False, default = '')):
     # manage all cases where request should not be rebutted
     if history[request_number]["state"] == "open":
         await ctx.respond("This request has not yet been processed by a judge.", ephemeral=True)
@@ -150,12 +150,48 @@ async def validate_trial_request(ctx, request_number: int):
     await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
 
 @bot.slash_command(name = "info", description = "Request details of a case or user")
-async def request_details(ctx, request_number: int):
-    if int(request_number) not in history:
+async def request_details(ctx, request_number: Option(int, "If you want information on a case, enter case #", required = False), user: Option(discord.User, "If you want information on a user, please select them", required = False)):
+    if request_number == None and user == None:
+        await ctx.respond("Please select a case # or a user.", ephemeral=True)
+        return
+    
+    # USER INFO
+    if request_number == None:
+        user_id = str(user.id)
+        if user_id not in attorney_registry:
+            await ctx.respond("This user is not currently registered.", ephemeral=True)
+            return
+        
+        cases_handled = 0
+        # calculate cases handled
+        for case in history:
+            if "judge" in case and case["judge"] == user.id:
+                cases_handled += 1
+            if "prosecutor" in case and case["prosecutor"] == user.id:
+                cases_handled += 1
+            if "defense" in case and case["defense"] == user.id:
+                cases_handled += 1
+
+        embedVar = discord.Embed(title=attorney_registry[user_id]["full_name"])
+        embedVar.add_field(name="Phone Number", value=attorney_registry[user_id]["phone"], inline=True)
+        embedVar.add_field(name="Timezone", value=attorney_registry[user_id]["timezone"], inline=True)
+        embedVar.add_field(name="Cases Handled", value=cases_handled, inline=True)
+
+
+        if "photo_url" in attorney_registry[user_id]:
+            embedVar.set_image(url=attorney_registry[user_id]["photo_url"])
+        await ctx.respond(embed=embedVar, ephemeral=True)
+        return
+    
+
+    # CASE INFO
+    request_number = str(request_number) # make sure it is string to be able to call it later.
+
+    if request_number not in history:
         await ctx.respond("This trial request # does not exist", ephemeral=True)
         return
 
-    trial_info = history[int(request_number)]
+    trial_info = history[request_number]
 
     if trial_info["state"] == "rejected":
         embed_colour = 0xDC143C
@@ -164,7 +200,7 @@ async def request_details(ctx, request_number: int):
     else:
         embed_colour = 0x4666FF
 
-    embedVar = discord.Embed(title="Trial request #" + str(request_number) + " details:", description=trial_info["description"])
+    embedVar = discord.Embed(title="Trial request #" + request_number + " details:", description=trial_info["description"])
 
     # add corresponding colour
     embedVar.color = embed_colour
@@ -295,6 +331,7 @@ class registration_modal(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Last Name"))
         self.add_item(discord.ui.InputText(label="Phone number"))
         self.add_item(discord.ui.InputText(label="Timezone in UTC format (ex: UTC+5/UTC-2)"))
+        self.add_item(discord.ui.InputText(label="Link to picture", required=False))
 
     async def callback(self, interaction: discord.Interaction):
 
@@ -318,6 +355,7 @@ class registration_modal(discord.ui.Modal):
         attorney_registry[user_id]["full_name"] = self.children[0].value + " " + self.children[1].value
         attorney_registry[user_id]["phone"] = phone
         attorney_registry[user_id]["timezone"] = user_timezone
+        attorney_registry[user_id]["photo_url"] = self.children[4].value
         save_data("registry")
 
         await interaction.response.send_message("You have successfully registered. You can check your info at any time with /info.", ephemeral=True)
@@ -536,6 +574,8 @@ def number_generator():
     while unique_request_number in history:
         # generate a new one
         unique_request_number = randint(100000, 999999)
+    # make it a string because json can only have strings as keys
+    unique_request_number = str(unique_request_number)
     return unique_request_number
 
 def save_data(data_to_save):

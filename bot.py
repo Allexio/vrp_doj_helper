@@ -179,7 +179,7 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
 
 
         if "photo_url" in attorney_registry[user_id]:
-            embedVar.set_image(url=attorney_registry[user_id]["photo_url"])
+            embedVar.set_thumbnail(url=attorney_registry[user_id]["photo_url"])
         await ctx.respond(embed=embedVar, ephemeral=True)
         return
     

@@ -16,9 +16,9 @@ from bbcode_generators import *
 VERSION = 0.5
 
 # channel where information should be output when someone takes an action
-TRIAL_MANAGEMENT_CHANNEL = 1009172034670034974
+CIVIL_TRIAL_MANAGEMENT_CHANNEL = 1009172034670034974
+CRIMINAL_TRIAL_MANAGEMENT_CHANNEL = 1009172034670034974
 RECRUITMENT_CHANNEL = 1005113728586498158
-
 
 # if a request is currently being validated, its number will be here
 request_being_validated = 000000
@@ -26,7 +26,6 @@ request_being_validated = 000000
 request_being_rebutted = 000000
 # if a judge is currently validating a request, his name will be stored here
 validating_judge = ""
-
 
 bot = discord.Bot()
 
@@ -47,7 +46,6 @@ def load_history() -> dict:
 async def on_ready():
     print(f"We have logged in as {bot.user}")
 
-
 @bot.slash_command(name = "help", description = "Get some help on using the bot")
 async def help(ctx):
     await ctx.respond("Hey there and thanks for using the DoJ template creator. You can contact <@108986791696048128> if you need any information regarding this bot.")
@@ -63,10 +61,14 @@ async def email(ctx):
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "defend", description = "Initiate a new trial request or issue a response with pleas.")
-async def trial_request(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
+async def defend(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
     modal = trial_request_modal(title="Create a trial request")
     await ctx.send_modal(modal)
 
+@bot.slash_command(name = "civil-trial-request", description = "Request the opening of a new civil trial.")
+async def civil_trial_request(ctx):
+    modal = civil_request_modal(title="Create a civil trial request")
+    await ctx.send_modal(modal)
 
 @bot.slash_command(name = "prosecute", description = "Initiate a new trial request or issue a rebuttal")
 async def trial_request_rebuttal(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
@@ -89,6 +91,8 @@ async def trial_request_rebuttal(ctx, request_number: Option(int, "If case is al
     request_being_rebutted = request_number
     modal = trial_request_rebuttal_modal(title="Create a trial request rebuttal")
     await ctx.send_modal(modal)
+
+
 
 @bot.slash_command(name = "validate-trial-request", description = "Accept or reject a trial request as a judge.")
 async def validate_trial_request(ctx, request_number: int):
@@ -131,6 +135,8 @@ async def request_details(ctx, request_number: int):
         defendant_string = ", ".join(trial_info["defendants"])
 
     embedVar.add_field(name=title, value=defendant_string, inline=True)
+    if "plaintiffs" in trial_info:
+        embedVar.add_field(name="Plaintiff", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
     if "defense" in trial_info:
         embedVar.add_field(name="Defense", value="<@"+str((trial_info["defense"]))+">", inline=True)
     if "judge" in trial_info:
@@ -138,18 +144,20 @@ async def request_details(ctx, request_number: int):
     if "prosecutor" in trial_info:
         embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["prosecutor"]))+">", inline=True)
 
-    # format charges and pleas together
-    charges_and_pleas = ""
-    for iterator, charge in enumerate(trial_info["charges"]):
-        charges_and_pleas += charge + " -> " + trial_info["pleas"][iterator] + "\n"
-    # add them
-    embedVar.add_field(name="Charges & Pleas", value=charges_and_pleas, inline=False)
+
+    if type == "criminal":
+        # format charges and pleas together
+        charges_and_pleas = ""
+        for iterator, charge in enumerate(trial_info["charges"]):
+            charges_and_pleas += charge + " -> " + trial_info["pleas"][iterator] + "\n"
+        # add them
+        embedVar.add_field(name="Charges & Pleas", value=charges_and_pleas, inline=False)
     
     # add the timestamp
     if isinstance(trial_info["created_timestamp"], float):
         embedVar.timestamp = datetime.fromtimestamp(trial_info["created_timestamp"])
     else:
-        print("something fucked up and you got a non normal timestamp to print")
+        print("Something fucked up and you got a non normal timestamp to print. Congrats.")
         embedVar.timestamp = trial_info["created_timestamp"]
 
     await ctx.respond(embed=embedVar, ephemeral=True)
@@ -168,7 +176,10 @@ class validate_view(discord.ui.View):
         history[request_being_validated]["state"] = "rejected"
         save_history()
         await interaction.response.send_message("You rejected the trial #" + str(request_being_validated), ephemeral=True)
-        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
+        if history[request_being_validated]["type"] == "criminal":
+            channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
+        else:
+            channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has rejected request #" + str(request_being_validated))
         request_being_validated = 0
 
@@ -179,7 +190,10 @@ class validate_view(discord.ui.View):
         history[request_being_validated]["state"] = "validated"
         save_history()
         await interaction.response.send_message("You approved the trial #" + str(request_being_validated), ephemeral=True)
-        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
+        if history[request_being_validated]["type"] == "criminal":
+            channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
+        else:
+            channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has approved request #" + str(request_being_validated))
         request_being_validated = 0
         
@@ -275,16 +289,74 @@ class trial_request_modal(discord.ui.Modal):
         history[request_number]["state"] = "open"
         history[request_number]["defense"] = interaction.user.id
         history[request_number]["created_timestamp"] = py_timestamp.timestamp()
+        history[request_number]["type"] = "criminal"
 
         save_history()
 
-        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
+        channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Defense attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
 
         bbcode = request_bbcode_generator(defendants, description, charges, pleas, evidence, request_number)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
+
+
+class civil_request_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Name(s) of the plaintiff(s) (comma-separated)"))
+        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
+        self.add_item(discord.ui.InputText(label="Type (tort/contract)"))
+        self.add_item(discord.ui.InputText(label="Short description", style=discord.InputTextStyle.long))
+        self.add_item(discord.ui.InputText(label="Evidence (comma-separated)", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        plaintiffs = self.children[0].value.split(",")
+        defendants = self.children[1].value.split(",")
+        type = self.children[2].value.lower()
+        description = self.children[3].value
+        evidence = self.children[4].value.split(",")
+
+        # clean up type and reject non-standard types
+        if type == "t" or "tort" in type:
+            type = "Tort"
+        elif type == "c" or "contract" in type:
+            type = "Contract Dispute"
+        else:
+            await interaction.response.send_message("This type of civil trial does not exist, please select a proper type either \"contract\" or \"tort\".", ephemeral=True)
+
+        # clean up lists
+        defendants = [i.strip() for i in defendants]
+        plaintiffs = [i.strip() for i in plaintiffs]
+        evidence = [i.strip() for i in evidence]
+
+        py_timestamp = datetime.now()
+
+        request_number = request_number_generator()
+
+        # save data to history
+        history[request_number] = {}
+        history[request_number]["defendants"] = defendants
+        history[request_number]["type"] = type
+        history[request_number]["description"] = description
+        history[request_number]["evidence"] = evidence
+        history[request_number]["state"] = "open"
+        history[request_number]["plaintiffs"] = plaintiffs
+        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
+
+        save_history()
+
+        channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
+
+        bbcode = civil_request_bbcode_generator(plaintiffs, defendants, description, type, evidence, request_number)
+        code_snippet = format_to_code(bbcode)
+        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
+        await interaction.response.send_message(request_response, ephemeral=True)
+
 
 class trial_request_rebuttal_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -338,7 +410,7 @@ class trial_request_rebuttal_modal(discord.ui.Modal):
         save_history()
 
         # Get channel
-        channel = bot.get_channel(TRIAL_MANAGEMENT_CHANNEL)
+        channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
 
         # Get trial start time
         trial_time = int(datetime.now().timestamp()+900)

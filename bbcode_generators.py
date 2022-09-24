@@ -68,6 +68,58 @@ def request_bbcode_generator(defendants: list, description: str, charges: list, 
     bbcode += "\n[/list]"
     return bbcode
 
+def civil_request_bbcode_generator(plaintiffs: list, defendants: list, description: str, type: str, evidence: list, request_number: int):
+    """bbcode generator for trial request templates"""
+    
+    if len(plaintiffs) > 1:
+        plural = "s"
+        reverse_plural = ""
+    else:
+        plural = ""
+        reverse_plural = "s"
+
+    join_string = "; "
+    plaintiffs_list_string = join_string.join(plaintiffs)
+    defendants_list_string = join_string.join(defendants)
+
+    # INTRO section -> partly replace with an image?
+    bbcode = "[divbox=lightblue]"
+    bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
+    bbcode += "\n[center][size=150][b]LOS SANTOS CIVIL COURT DIVISION[/b][/size][/center]"
+    bbcode += "\n[list=none][/list]"
+    
+    bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
+    bbcode += "\n[b]" + plaintiffs_list_string + "[/b][list=none][/list][center]v[/center][list=none][/list][b][center]" + defendants_list_string + "[/center][/b]"
+    bbcode += "\n[/divbox][/float]"
+    
+    bbcode += "\n[float=right][divbox=gold]"
+    bbcode += "\n[center]BENCH TRIAL REQUEST[/center]"
+    bbcode += "\n[center]#" + str(request_number) + "[/center]"
+    bbcode += "\n[/divbox]"
+    
+    bbcode += "\n[/float][color=white][list=none].[/list][list=none].[/list][list=none].[/list][list=none].[/list][/color][/divbox]"
+
+    # DESCRIPTION section
+    bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
+    bbcode += "\n" + description
+
+    # TYPE section
+    bbcode += "\n\n[center][b][u]TYPE[/u][/b][/center]"
+    bbcode += "\n[b]" + plaintiffs_list_string + "[/b], claim" + reverse_plural + " " + type + " against " + defendants_list_string +  "."
+
+    # EVIDENCE section
+    bbcode += "\n\n[center][b][u]EVIDENCE[/u][/b][/center]"
+    bbcode += "\n[list=0]"
+
+    # list out required evidence
+    evidence_increment = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    for iterator, evidence_item in enumerate(evidence):
+        bbcode += "\n[*]Exhibit " + evidence_increment[iterator] + ": " + evidence_item
+
+    bbcode += "\n[/list]"
+    return bbcode
+
+
 def rebuttal_bbcode_generator(defendants: list, evidence: list, plea: list, charges: list):
     """bbcode generator for trial request rebuttal templates"""
     pass

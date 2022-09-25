@@ -159,7 +159,10 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
     if request_number == None:
         user_id = str(user.id)
         if user_id not in attorney_registry:
-            await ctx.respond("This user is not currently registered.", ephemeral=True)
+            await ctx.respond("This user is not currently admitted.", ephemeral=True)
+            return
+        elif "full_name" not in attorney_registry[user_id]:
+            await ctx.respond("This user is admitted but did not register yet.", ephemeral=True)
             return
         
         cases_handled = 0
@@ -182,7 +185,6 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
             embedVar.set_thumbnail(url=attorney_registry[user_id]["photo_url"])
         await ctx.respond(embed=embedVar, ephemeral=True)
         return
-    
 
     # CASE INFO
     request_number = str(request_number) # make sure it is string to be able to call it later.

@@ -104,7 +104,7 @@ async def register(ctx):
         await ctx.respond("You have not been admitted and therefore can not register.\nPlease contact your superior if you have been told you have passed the bar exam.", ephemeral=True)
 
 @bot.slash_command(name = "defend", description = "Initiate a new trial request or issue a response with pleas.")
-async def defend(ctx, request_number: Option(int, "If case is already created, enter case #", required = False, default = '')):
+async def defend(ctx, request_number: Option(str, "If case is already created, enter case #", required = False, default = '')):
     modal = trial_request_modal(title="Create a trial request")
     await ctx.send_modal(modal)
 
@@ -135,9 +135,8 @@ async def trial_request_rebuttal(ctx, request_number: Option(str, "If case is al
     modal = trial_request_rebuttal_modal(title="Create a trial request rebuttal")
     await ctx.send_modal(modal)
 
-
 @bot.slash_command(name = "validate-trial-request", description = "Accept or reject a trial request as a judge.")
-async def validate_trial_request(ctx, request_number: int):
+async def validate_trial_request(ctx, request_number: str):
     # first print the details of the ticket
     await request_details(ctx, request_number)
     # check if the request has already been processed
@@ -148,6 +147,19 @@ async def validate_trial_request(ctx, request_number: int):
     global request_being_validated
     request_being_validated = request_number
     await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
+
+@bot.slash_command(name = "add-evidence", description = "Initiate a new trial request or issue a rebuttal")
+async def add_evidence(ctx, request_number: str):
+    """Allows an attorney to add evidence to an ongoing trial"""
+    if history[request_number]["state"] == "rejected":
+        await ctx.respond("This request has been rejected by <@" + str(history[request_number]["judge"]) + "> and therefore you can not add evidence to it.", ephemeral=True)
+        return
+    elif history[request_number]["state"] == "closed":
+        await ctx.respond("This request has been already been closed by <@" + str(history[request_number]["judge"]) + "> and therefore you can not add evidence to it.", ephemeral=True)
+        return
+
+    modal = add_evidence_modal(title="Add evidence")
+    await ctx.send_modal(modal)
 
 @bot.slash_command(name = "info", description = "Request details of a case or user")
 async def request_details(ctx, request_number: Option(int, "If you want information on a case, enter case #", required = False), user: Option(discord.User, "If you want information on a user, please select them", required = False)):
@@ -276,7 +288,7 @@ class validate_view(discord.ui.View):
         else:
             channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Judge <@" + str(interaction.user.id) + "> has approved request #" + str(request_being_validated))
-        request_being_validated = 0       
+        request_being_validated = 0
     
 class email_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -294,6 +306,22 @@ class email_modal(discord.ui.Modal):
         office = interpret_office_name(interaction.user.roles)
         bbcode_email = format_to_code(email_bbcode_generator(recipient, office, topic, body))
         await interaction.response.send_message(bbcode_email, ephemeral=True)
+
+class add_evidence_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Evidence label"))
+        self.add_item(discord.ui.InputText(label="Link to photographic or video evidence", required=False))
+        self.add_item(discord.ui.InputText(label="Description of the evidence / Text", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        evidence_label = self.children[0].value
+        media_url = self.children[1].value
+        description = self.children[2].value
+
+        await interaction.response.send_message("This is not implemented yet, but will be soon. Check back later.", ephemeral=True)
 
 class recruitment_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -324,7 +352,6 @@ class recruitment_modal(discord.ui.Modal):
         await channel.send("<@" + str(interaction.user.id) + "> has generated" + simple_type + "email for candidate **" + candidate + "**")
         await interaction.response.send_message(bbcode_email, ephemeral=True)
 
-    
 class registration_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -361,7 +388,6 @@ class registration_modal(discord.ui.Modal):
         save_data("registry")
 
         await interaction.response.send_message("You have successfully registered. You can check your info at any time with /info.", ephemeral=True)
-
 
 class trial_request_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -420,7 +446,6 @@ class trial_request_modal(discord.ui.Modal):
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
 
-
 class civil_request_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -475,7 +500,6 @@ class civil_request_modal(discord.ui.Modal):
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
-
 
 class trial_request_rebuttal_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:

@@ -151,14 +151,17 @@ async def validate_trial_request(ctx, request_number: str):
 @bot.slash_command(name = "add-evidence", description = "Initiate a new trial request or issue a rebuttal")
 async def add_evidence(ctx, request_number: str):
     """Allows an attorney to add evidence to an ongoing trial"""
-    if history[request_number]["state"] == "rejected":
+    if request_number not in history:
+        await ctx.respond("This case # does not correspond to any existing case.", ephemeral=True)
+        return
+    elif history[request_number]["state"] == "rejected":
         await ctx.respond("This request has been rejected by <@" + str(history[request_number]["judge"]) + "> and therefore you can not add evidence to it.", ephemeral=True)
         return
     elif history[request_number]["state"] == "closed":
         await ctx.respond("This request has been already been closed by <@" + str(history[request_number]["judge"]) + "> and therefore you can not add evidence to it.", ephemeral=True)
         return
 
-    modal = add_evidence_modal(title="Add evidence")
+    modal = add_evidence_modal(title="Add evidence to a case")
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "info", description = "Request details of a case or user")

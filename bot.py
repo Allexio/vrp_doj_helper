@@ -87,7 +87,7 @@ async def email(ctx):
 @bot.slash_command(name = "admit_attorney", description = "Admit a new attorney, letting them then register.")
 async def admit_attorney(ctx, attorney: discord.Option(discord.User)):
     
-    if attorney.id in attorney_registry:
+    if str(attorney.id) in attorney_registry:
         await ctx.respond("This attorney is already admitted.", ephemeral=True)
     else:
         attorney_registry[str(attorney.id)] = {} # add a new line in DB

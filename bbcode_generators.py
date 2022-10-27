@@ -1,15 +1,9 @@
 from datetime import datetime
 
-def request_bbcode_generator(trial_type: str, defendants: list, description: str, charges: list, request_number: int):
+def criminal_request_bbcode_generator(defendants: list, description: str, request_number: int, charges: list):
     """bbcode generator for trial request templates"""
 
     # PREPARATION
-
-    if trial_type.lower() == "criminal":
-        court_type = "CRIMINAL"
-    else:
-        court_type = "CIVIL"
-
 
     if len(defendants) > 1:
         plural = "s"
@@ -31,7 +25,7 @@ def request_bbcode_generator(trial_type: str, defendants: list, description: str
     # INTRO section -> partly replace with an image?
     bbcode = "[divbox=lightblue]"
     bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
-    bbcode += "\n[center][size=150][b]LOS SANTOS " + court_type + " COURT DIVISION[/b][/size][/center]"
+    bbcode += "\n[center][size=150][b]LOS SANTOS CRIMINAL COURT DIVISION[/b][/size][/center]"
     bbcode += "\n[list=none][/list]"
     
     bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
@@ -49,18 +43,63 @@ def request_bbcode_generator(trial_type: str, defendants: list, description: str
     bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
     bbcode += "\n" + description
 
-    if trial_type.lower() == "criminal":
+    if charges:
         # CHARGES section
         bbcode += "\n\n[center][b][u]CHARGES & PLEAS[/u][/b][/center]"
-        bbcode += "\n[b]" + defendants_list_string + "[/b], claim" + reverse_plural + " defense for the following charge" + charge_plural +  ":"
+        bbcode += "\nThe Prosecution would like to charge the defendant" + plural + ":[b]" + defendants_list_string + "[/b] with the following:"
         bbcode += "\n[list=1]"
         
         # list out the charges
-        for iterator, charge in enumerate(charges):
-            bbcode += "\n[*] " + charge + "[/b]"
+        for charge in charges:
+            bbcode += "\n[*][b] " + charge + "[/b]"
         bbcode += "\n[/list]"
 
     return bbcode
+
+def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, contract_number=None):
+    """bbcode generator for trial request templates"""
+
+    # PREPARATION
+
+    if len(defendants) > 1:
+        plural = "s"
+        reverse_plural = ""
+    else:
+        plural = ""
+        reverse_plural = "s"
+
+    join_string = "; "
+    defendants_list_string = join_string.join(defendants)
+
+
+    # START OF BBCODE
+    # INTRO section -> partly replace with an image?
+    bbcode = "[divbox=lightblue]"
+    bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
+    bbcode += "\n[center][size=150][b]LOS SANTOS CIVIL COURT DIVISION[/b][/size][/center]"
+    bbcode += "\n[list=none][/list]"
+    
+    bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
+    bbcode += "\n[b]" + plaintiff + "[/b][list=none][/list][center]v[/center][list=none][/list][b][center]" + defendants_list_string + "[/center][/b]"
+    bbcode += "\n[/divbox][/float]"
+    
+    bbcode += "\n[float=right][divbox=gold]"
+    bbcode += "\n[center]BENCH TRIAL REQUEST[/center]"
+    bbcode += "\n[center]#" + str(request_number) + "[/center]"
+    bbcode += "\n[/divbox]"
+    
+    bbcode += "\n[/float][color=white][list=none].[/list][list=none].[/list][list=none].[/list][list=none].[/list][/color][/divbox]"
+    bbcode += "\nI, attorney " + plaintiff_attorney + ", am on this day filing a lawsuit against "+ defendants_list_string + " on behalf of " + plaintiff + " in relation to the following incident:"
+
+    # DESCRIPTION section
+    bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
+    bbcode += "\n" + description
+
+    if contract_number:
+        bbcode += "\n\n\n\nThe contract in question is registered with the government of San Andreas as contract #" + contract_number
+
+    return bbcode
+
 
 def rebuttal_bbcode_generator(defendants: list, evidence: list, plea: list, charges: list):
     """bbcode generator for trial request rebuttal templates"""

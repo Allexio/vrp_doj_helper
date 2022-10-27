@@ -104,18 +104,16 @@ async def register(ctx):
     else:
         await ctx.respond("You have not been admitted and therefore can not register.\nPlease contact your superior if you have been told you have passed the bar exam.", ephemeral=True)
 
-@bot.slash_command(name = "defend", description = "Initiate a new trial procedure")
-async def defend(ctx, request_number: Option(str, "If case is already created, enter case #", required = False, default = '')):
-    modal = trial_request_modal(title="Create a trial request")
-    await ctx.send_modal(modal)
-
 @bot.slash_command(name = "file", description = "Initiate a new trial procedure")
-async def file(ctx):
-    modal = trial_request_modal(title="Create a trial request")
+async def file(ctx, case_type: Option(str, "Choose a case type (contract/tort)", choices=["Contract", "Tort"], required=True)):
+    if case_type == "Contract":
+        modal = trial_request_contract_modal(title="File a contract dispute lawsuit")
+    elif case_type == "Tort":
+        modal = trial_request_tort_modal(title="File a tort lawsuit")
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "prosecute", description = "Initiate a new trial request or issue a rebuttal")
-async def trial_request_rebuttal(ctx, request_number: Option(str, "If case is already created, enter case #", required = False, default = '')):
+async def trial_request_rebuttal(ctx, request_number: Option(str, "If case is already created, enter case #", required=False, default='')):
     # manage all cases where request should not be rebutted
     if history[request_number]["state"] == "open":
         await ctx.respond("This request has not yet been processed by a judge.", ephemeral=True)
@@ -396,14 +394,99 @@ class registration_modal(discord.ui.Modal):
 
         await interaction.response.send_message("You have successfully registered. You can check your info at any time with /info.", ephemeral=True)
 
-class trial_request_modal(discord.ui.Modal):
+class trial_request_contract_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.add_item(discord.ui.InputText(label="Type (Contract/Tort)"))
+        self.add_item(discord.ui.InputText(label="Name of the plaintiff (individual/company)"))
         self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
         self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
-        self.add_item(discord.ui.InputText(label="Charge(s) if applicable (comma-separated)", style=discord.InputTextStyle.long, required=False))
+        self.add_item(discord.ui.InputText(label="Number of the contract (5-digit)"))
+        
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        plaintiff = self.children[0].value
+        defendants = self.children[1].value.split(",")
+        description = self.children[2].value
+        contract_number = self.children[3].value
+
+        type = "Contract"
+        
+        defendants = [i.strip() for i in defendants] # clean up list
+        py_timestamp = datetime.now() # get current timestamp
+        request_number = number_generator() # generate a unique 6-digit case number
+        plaintiff_attorney = interaction.user.nick # the attorney who filed this lawsuit
+
+        # save data to history
+        history[request_number] = {}
+        history[request_number]["description"] = description
+        history[request_number]["defendants"] = defendants
+        history[request_number]["state"] = "new"
+        history[request_number]["plaintiff"] = plaintiff
+        history[request_number]["plaintiff_attorney"] = interaction.user.id
+        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
+        history[request_number]["contract_number"] = contract_number
+        history[request_number]["type"] = type
+
+        save_data("history")
+
+        channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
+
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, contract_number)
+        code_snippet = format_to_code(bbcode)
+        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
+        await interaction.response.send_message(request_response, ephemeral=True)
+
+class trial_request_tort_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Name of the plaintiff (individual/company)"))
+        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
+        self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        plaintiff = self.children[0].value
+        defendants = self.children[1].value.split(",")
+        description = self.children[2].value
+
+        type = "Tort"
+
+        defendants = [i.strip() for i in defendants] # clean up list
+        py_timestamp = datetime.now() # get current timestamp
+        request_number = number_generator() # generate a unique 6-digit case number
+        plaintiff_attorney = interaction.user.name
+
+        # save data to history
+        history[request_number] = {}
+        history[request_number]["description"] = description
+        history[request_number]["defendants"] = defendants
+        history[request_number]["state"] = "new"
+        history[request_number]["plaintiff"] = plaintiff
+        history[request_number]["plaintiff_attorney"] = interaction.user.id
+        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
+        history[request_number]["type"] = type
+
+        save_data("history")
+
+        channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
+
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney)
+        code_snippet = format_to_code(bbcode)
+        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
+        await interaction.response.send_message(request_response, ephemeral=True)
+
+class trial_request_criminal_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
+        self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
+        self.add_item(discord.ui.InputText(label="Charge(s) (comma-separated)", style=discord.InputTextStyle.long, required=False))
 
     async def callback(self, interaction: discord.Interaction):
         
@@ -415,11 +498,6 @@ class trial_request_modal(discord.ui.Modal):
         # clean up lists
         defendants = [i.strip() for i in defendants]
         charges = [i.strip().capitalize() for i in charges]
-
-        # check if type is recognised
-        if type.lower() not in ["contract", "tort"]:
-            await interaction.response.send_message("You need to select a valid trial type (Contract/Tort).", ephemeral=True)
-            return
 
         py_timestamp = datetime.now()
 
@@ -440,64 +518,7 @@ class trial_request_modal(discord.ui.Modal):
         channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
         await channel.send("Attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
 
-        bbcode = request_bbcode_generator(type, defendants, description, charges, request_number)
-        code_snippet = format_to_code(bbcode)
-        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
-        await interaction.response.send_message(request_response, ephemeral=True)
-
-class defense_request_modal(discord.ui.Modal):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
-        self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
-        self.add_item(discord.ui.InputText(label="Charge(s) (comma-separated)", style=discord.InputTextStyle.long))
-        self.add_item(discord.ui.InputText(label="Plea(s) (comma-separated)"))
-        self.add_item(discord.ui.InputText(label="Evidence required (comma-separated)", style=discord.InputTextStyle.long))
-
-    async def callback(self, interaction: discord.Interaction):
-        
-        defendants = self.children[0].value.split(",")
-        description = self.children[1].value
-        charges = self.children[2].value.split(",")
-        pleas = self.children[3].value.split(",")
-        evidence = self.children[4].value.split(",")
-
-        # clean up lists
-        defendants = [i.strip() for i in defendants]
-        charges = [i.strip().capitalize() for i in charges]
-        pleas = [i.strip().capitalize() for i in pleas]
-        evidence = [i.strip() for i in evidence]
-
-        if len(pleas) != len(charges) and len(pleas) > 1:
-            await interaction.response.send_message("You need to write the same amount of charges and pleas.", ephemeral=True)
-
-        # if only one plea was entered, spread it out to all the applicable charges
-        if len(charges) > 1 and len(pleas) == 1:
-            pleas = [pleas[0]] * len(charges)
-
-        py_timestamp = datetime.now()
-
-        request_number = number_generator()
-
-        # save data to history
-        history[request_number] = {}
-        history[request_number]["description"] = description
-        history[request_number]["defendants"] = defendants
-        history[request_number]["charges"] = charges
-        history[request_number]["pleas"] = pleas
-        history[request_number]["evidence"] = evidence
-        history[request_number]["state"] = "open"
-        history[request_number]["defense"] = interaction.user.id
-        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
-        history[request_number]["type"] = "criminal"
-
-        save_data("history")
-
-        channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
-        await channel.send("Defense attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
-
-        bbcode = request_bbcode_generator(defendants, description, charges, pleas, evidence, request_number)
+        bbcode = criminal_request_bbcode_generator(type, defendants, description, charges, request_number)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
@@ -563,7 +584,6 @@ class trial_request_rebuttal_modal(discord.ui.Modal):
         
 
         await interaction.response.send_message("You have succesfully responded to request #" + str(request_being_rebutted), ephemeral=True)
-
 
 def interpret_office_name(user_roles: list):
     """Takes a user's roles and returns the closest matching office name"""

@@ -139,7 +139,7 @@ async def trial_request_rebuttal(ctx, request_number: Option(str, "If case is al
 @bot.slash_command(name = "validate-trial-request", description = "Accept or reject a trial request as a judge.")
 async def validate_trial_request(ctx, request_number: str):
     # first print the details of the ticket
-    await request_details(ctx, request_number)
+    await request_details(ctx, request_number=request_number, user=None)
     # check if the request has already been processed
     if history[request_number]["state"] != "new":
         await ctx.respond("This request has already been processed by <@" + str(history[request_number]["judge"]) + "> and can not be validated", ephemeral=True)

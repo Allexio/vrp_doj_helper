@@ -403,7 +403,7 @@ class trial_request_modal(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Type (Contract/Tort)"))
         self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
         self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
-        self.add_item(discord.ui.InputText(label="Charge(s) if applicable (comma-separated)", style=discord.InputTextStyle.long), required=False)
+        self.add_item(discord.ui.InputText(label="Charge(s) if applicable (comma-separated)", style=discord.InputTextStyle.long, required=False))
 
     async def callback(self, interaction: discord.Interaction):
         
@@ -417,8 +417,9 @@ class trial_request_modal(discord.ui.Modal):
         charges = [i.strip().capitalize() for i in charges]
 
         # check if type is recognised
-        if type.lower() in ["contract", "tort"]:
+        if type.lower() not in ["contract", "tort"]:
             await interaction.response.send_message("You need to select a valid trial type (Contract/Tort).", ephemeral=True)
+            return
 
         py_timestamp = datetime.now()
 

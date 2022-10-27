@@ -1,8 +1,16 @@
 from datetime import datetime
 
-def request_bbcode_generator(defendants: list, description: str, charges: list, pleas: list, evidence: list, request_number: int):
+def request_bbcode_generator(trial_type: str, defendants: list, description: str, charges: list, request_number: int):
     """bbcode generator for trial request templates"""
-    
+
+    # PREPARATION
+
+    if trial_type.lower() == "criminal":
+        court_type = "CRIMINAL"
+    else:
+        court_type = "CIVIL"
+
+
     if len(defendants) > 1:
         plural = "s"
         reverse_plural = ""
@@ -14,15 +22,16 @@ def request_bbcode_generator(defendants: list, description: str, charges: list, 
         charge_plural = "s"
     else:
         charge_plural = ""
-    
-
 
     join_string = "; "
     defendants_list_string = join_string.join(defendants)
+
+
+    # START OF BBCODE
     # INTRO section -> partly replace with an image?
     bbcode = "[divbox=lightblue]"
     bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
-    bbcode += "\n[center][size=150][b]LOS SANTOS CRIMINAL COURT DIVISION[/b][/size][/center]"
+    bbcode += "\n[center][size=150][b]LOS SANTOS " + court_type + " COURT DIVISION[/b][/size][/center]"
     bbcode += "\n[list=none][/list]"
     
     bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
@@ -40,32 +49,16 @@ def request_bbcode_generator(defendants: list, description: str, charges: list, 
     bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
     bbcode += "\n" + description
 
-    # CHARGES and PLEAS section
+    # CHARGES section
     bbcode += "\n\n[center][b][u]CHARGES & PLEAS[/u][/b][/center]"
-
     bbcode += "\n[b]" + defendants_list_string + "[/b], claim" + reverse_plural + " defense for the following charge" + charge_plural +  ":"
     bbcode += "\n[list=1]"
-
-
     
-
-    # list out the charges and pleas
-    
+    # list out the charges
     for iterator, charge in enumerate(charges):
-        bbcode += "\n[*]For the charge of [b]" + charge + "[/b], the defendant" + plural + " plead" + reverse_plural + " [b][u]" + pleas[iterator] + "[/u][/b]"
+        bbcode += "\n[*] " + charge + "[/b]"
     bbcode += "\n[/list]"
 
-
-    # EVIDENCE section
-    bbcode += "\n\n[center][b][u]EVIDENCE[/u][/b][/center]"
-    bbcode += "\n[list=0]"
-
-    # list out required evidence
-    evidence_increment = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-    for iterator, evidence_item in enumerate(evidence):
-        bbcode += "\n[*]Exhibit " + evidence_increment[iterator] + ": " + evidence_item
-
-    bbcode += "\n[/list]"
     return bbcode
 
 def civil_request_bbcode_generator(plaintiffs: list, defendants: list, description: str, type: str, evidence: list, request_number: int):

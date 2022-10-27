@@ -1,7 +1,8 @@
 
 # default libraries
 from ast import literal_eval # to read history
-from datetime import datetime # to get current time
+from datetime import datetime
+from importlib.metadata import requires # to get current time
 from os import environ # to read bot auth key from env variables
 from random import randint # to generate case numbers
 from json import load, dump
@@ -103,14 +104,14 @@ async def register(ctx):
     else:
         await ctx.respond("You have not been admitted and therefore can not register.\nPlease contact your superior if you have been told you have passed the bar exam.", ephemeral=True)
 
-@bot.slash_command(name = "defend", description = "Initiate a new trial request or issue a response with pleas.")
+@bot.slash_command(name = "defend", description = "Initiate a new trial procedure")
 async def defend(ctx, request_number: Option(str, "If case is already created, enter case #", required = False, default = '')):
     modal = trial_request_modal(title="Create a trial request")
     await ctx.send_modal(modal)
 
-@bot.slash_command(name = "civil-trial-request", description = "Request the opening of a new civil trial.")
-async def civil_trial_request(ctx):
-    modal = civil_request_modal(title="Create a civil trial request")
+@bot.slash_command(name = "file", description = "Initiate a new trial procedure")
+async def file(ctx):
+    modal = trial_request_modal(title="Create a trial request")
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "prosecute", description = "Initiate a new trial request or issue a rebuttal")
@@ -140,7 +141,7 @@ async def validate_trial_request(ctx, request_number: str):
     # first print the details of the ticket
     await request_details(ctx, request_number)
     # check if the request has already been processed
-    if history[request_number]["state"] != "open":
+    if history[request_number]["state"] != "new":
         await ctx.respond("This request has already been processed by <@" + str(history[request_number]["judge"]) + "> and can not be validated", ephemeral=True)
         return
     # if not, ask if the user wants to reject or accept it
@@ -148,7 +149,7 @@ async def validate_trial_request(ctx, request_number: str):
     request_being_validated = request_number
     await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
 
-@bot.slash_command(name = "add-evidence", description = "Initiate a new trial request or issue a rebuttal")
+@bot.slash_command(name = "add-evidence", description = "Add evidence to an ongoing case.")
 async def add_evidence(ctx, request_number: str):
     """Allows an attorney to add evidence to an ongoing trial"""
     if request_number not in history:
@@ -185,7 +186,7 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
         for case in history:
             if "judge" in case and case["judge"] == user.id:
                 cases_handled += 1
-            if "prosecutor" in case and case["prosecutor"] == user.id:
+            if "prosecutor" in case and case["plaintiff"] == user.id:
                 cases_handled += 1
             if "defense" in case and case["defense"] == user.id:
                 cases_handled += 1
@@ -231,8 +232,11 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
         defendant_string = ", ".join(trial_info["defendants"])
 
     embedVar.add_field(name=title, value=defendant_string, inline=True)
-    if "plaintiffs" in trial_info:
-        embedVar.add_field(name="Plaintiff", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
+    if "plaintiff" in trial_info:
+        if trial_info["type"] == "Criminal":
+            embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
+        else:
+            embedVar.add_field(name="Plaintiff", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
     if "defense" in trial_info:
         embedVar.add_field(name="Defense", value="<@"+str((trial_info["defense"]))+">", inline=True)
     if "judge" in trial_info:
@@ -396,6 +400,54 @@ class trial_request_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        self.add_item(discord.ui.InputText(label="Type (Contract/Tort)"))
+        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
+        self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
+        self.add_item(discord.ui.InputText(label="Charge(s) if applicable (comma-separated)", style=discord.InputTextStyle.long), required=False)
+
+    async def callback(self, interaction: discord.Interaction):
+        
+        type = self.children[0].value.capitalize()
+        defendants = self.children[1].value.split(",")
+        description = self.children[2].value
+        charges = self.children[3].value.split(",")
+
+        # clean up lists
+        defendants = [i.strip() for i in defendants]
+        charges = [i.strip().capitalize() for i in charges]
+
+        # check if type is recognised
+        if type.lower() in ["contract", "tort"]:
+            await interaction.response.send_message("You need to select a valid trial type (Contract/Tort).", ephemeral=True)
+
+        py_timestamp = datetime.now()
+
+        request_number = number_generator()
+
+        # save data to history
+        history[request_number] = {}
+        history[request_number]["description"] = description
+        history[request_number]["defendants"] = defendants
+        history[request_number]["charges"] = charges
+        history[request_number]["state"] = "new"
+        history[request_number]["plaintiff"] = interaction.user.id
+        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
+        history[request_number]["type"] = type
+
+        save_data("history")
+
+        channel = bot.get_channel(CRIMINAL_TRIAL_MANAGEMENT_CHANNEL)
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
+
+        bbcode = request_bbcode_generator(type, defendants, description, charges, request_number)
+        code_snippet = format_to_code(bbcode)
+        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
+        await interaction.response.send_message(request_response, ephemeral=True)
+
+class defense_request_modal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
         self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
         self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
         self.add_item(discord.ui.InputText(label="Charge(s) (comma-separated)", style=discord.InputTextStyle.long))
@@ -445,61 +497,6 @@ class trial_request_modal(discord.ui.Modal):
         await channel.send("Defense attorney <@" + str(interaction.user.id) + "> has created trial request #" + str(request_number))
 
         bbcode = request_bbcode_generator(defendants, description, charges, pleas, evidence, request_number)
-        code_snippet = format_to_code(bbcode)
-        request_response = "Created request #" + str(request_number) + "\n" + code_snippet
-        await interaction.response.send_message(request_response, ephemeral=True)
-
-class civil_request_modal(discord.ui.Modal):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.add_item(discord.ui.InputText(label="Name(s) of the plaintiff(s) (comma-separated)"))
-        self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
-        self.add_item(discord.ui.InputText(label="Type (tort/contract)"))
-        self.add_item(discord.ui.InputText(label="Short description", style=discord.InputTextStyle.long))
-        self.add_item(discord.ui.InputText(label="Evidence (comma-separated)", style=discord.InputTextStyle.long))
-
-    async def callback(self, interaction: discord.Interaction):
-        
-        plaintiffs = self.children[0].value.split(",")
-        defendants = self.children[1].value.split(",")
-        type = self.children[2].value.lower()
-        description = self.children[3].value
-        evidence = self.children[4].value.split(",")
-
-        # clean up type and reject non-standard types
-        if type == "t" or "tort" in type:
-            type = "Tort"
-        elif type == "c" or "contract" in type:
-            type = "Contract Dispute"
-        else:
-            await interaction.response.send_message("This type of civil trial does not exist, please select a proper type either \"contract\" or \"tort\".", ephemeral=True)
-
-        # clean up lists
-        defendants = [i.strip() for i in defendants]
-        plaintiffs = [i.strip() for i in plaintiffs]
-        evidence = [i.strip() for i in evidence]
-
-        py_timestamp = datetime.now()
-
-        request_number = number_generator()
-
-        # save data to history
-        history[request_number] = {}
-        history[request_number]["defendants"] = defendants
-        history[request_number]["type"] = type
-        history[request_number]["description"] = description
-        history[request_number]["evidence"] = evidence
-        history[request_number]["state"] = "open"
-        history[request_number]["plaintiffs"] = plaintiffs
-        history[request_number]["created_timestamp"] = py_timestamp.timestamp()
-
-        save_data("history")
-
-        channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
-        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
-
-        bbcode = civil_request_bbcode_generator(plaintiffs, defendants, description, type, evidence, request_number)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)

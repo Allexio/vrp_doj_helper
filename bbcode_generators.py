@@ -56,7 +56,7 @@ def criminal_request_bbcode_generator(defendants: list, description: str, reques
 
     return bbcode
 
-def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, plaintiff_attorney_phone: int, contract_number=None):
+def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, plaintiff_attorney_phone: int, contract_number=None, plaintiff_attorney_address=None):
     """bbcode generator for trial request templates"""
 
     # PREPARATION
@@ -84,7 +84,7 @@ def civil_request_bbcode_generator(trial_type: str, defendants: list, descriptio
     bbcode += "\n[/divbox][/float]"
     
     bbcode += "\n[float=right][divbox=lightblue]"
-    bbcode += "\n[center]BENCH TRIAL REQUEST[/center]"
+    bbcode += "\n[center]TRIAL REQUEST[/center]"
     bbcode += "\n[center]#" + str(request_number) + "[/center]"
     bbcode += "\n[/divbox][/float][color=white][list=none].[/list][list=none].[/list][/color][/divbox][font=Courier New]"
     bbcode += "\n\n\nI, attorney [highlight=yellow]" + plaintiff_attorney + "[/highlight], am on this day filing a lawsuit against [highlight=yellow]"+ defendants_list_string + "[/highlight] on behalf of [highlight=yellow]" + plaintiff + "[/highlight] in relation to the following incident."
@@ -96,8 +96,10 @@ def civil_request_bbcode_generator(trial_type: str, defendants: list, descriptio
         bbcode += "\n\n\n\nThe contract in question is registered with the government of San Andreas as contract #" + contract_number
 
     bbcode += "\n\nRespectfully submitted,"
-    bbcode += "\n" + plaintiff_attorney
-    bbcode += "\n" + plaintiff_attorney
+    bbcode += "\n\n[b]" + plaintiff_attorney + "[/b]"
+    if plaintiff_attorney_address:
+        bbcode += "\n" + plaintiff_attorney_address
+    bbcode += "\nPhone number: " + plaintiff_attorney_phone
     bbcode += "[/font]"
     return bbcode
 

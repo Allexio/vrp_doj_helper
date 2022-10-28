@@ -363,22 +363,21 @@ class registration_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.add_item(discord.ui.InputText(label="First Name"))
-        self.add_item(discord.ui.InputText(label="Last Name"))
         self.add_item(discord.ui.InputText(label="Phone number"))
+        self.add_item(discord.ui.InputText(label="Office address", required=False, style=discord.InputTextStyle.long))
         self.add_item(discord.ui.InputText(label="Timezone in UTC format (ex: UTC+5/UTC-2)"))
         self.add_item(discord.ui.InputText(label="Link to picture", required=False))
 
     async def callback(self, interaction: discord.Interaction):
 
         # check phone number is proper format        
-        phone = self.children[2].value
+        phone = self.children[0].value
         if len(phone) != 6:
             await interaction.response.send_message("You have not provided a valid phone number. Please check and try again.", ephemeral=True)
             return
         
         # check timezone is in proper format
-        user_timezone = self.children[3].value
+        user_timezone = self.children[2].value
         if user_timezone.startswith("UTC+") or user_timezone.startswith("UTC-"):
             pass
         else:
@@ -388,10 +387,12 @@ class registration_modal(discord.ui.Modal):
 
         #TODO: Add private attorney role when a private attorney registers
 
-        attorney_registry[user_id]["full_name"] = self.children[0].value + " " + self.children[1].value
+        attorney_registry[user_id]["full_name"] = interaction.user.nick
         attorney_registry[user_id]["phone"] = phone
+        if self.children[3].value:
+            attorney_registry[user_id]["address"] = self.children[1].value
         attorney_registry[user_id]["timezone"] = user_timezone
-        attorney_registry[user_id]["photo_url"] = self.children[4].value
+        attorney_registry[user_id]["photo_url"] = self.children[3].value
         save_data("registry")
 
         await interaction.response.send_message("You have successfully registered. You can check your info at any time with /info.", ephemeral=True)
@@ -438,8 +439,9 @@ class trial_request_contract_modal(discord.ui.Modal):
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
+        plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number)
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number, plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
@@ -482,8 +484,9 @@ class trial_request_tort_modal(discord.ui.Modal):
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
+        plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone)
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, plaintiff_attorney_address=plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)

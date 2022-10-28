@@ -439,7 +439,10 @@ class trial_request_contract_modal(discord.ui.Modal):
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
-        plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
+        try:
+            plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
+        except KeyError:
+            plaintiff_attorney_address = None
 
         bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number, plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)
@@ -484,7 +487,10 @@ class trial_request_tort_modal(discord.ui.Modal):
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
-        plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
+        try:
+            plaintiff_attorney_address = attorney_registry[str(interaction.user.id)]["address"]
+        except KeyError:
+            plaintiff_attorney_address = None
 
         bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, plaintiff_attorney_address=plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)

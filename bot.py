@@ -437,7 +437,9 @@ class trial_request_contract_modal(discord.ui.Modal):
         await channel.send("Attorney <@" + str(interaction.user.id) + "> has created contract dispute lawsuit - case #" + str(request_number))
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, contract_number)
+        plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
+
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
@@ -479,7 +481,9 @@ class trial_request_tort_modal(discord.ui.Modal):
         await channel.send("Attorney <@" + str(interaction.user.id) + "> has created a tort lawsuit - case #" + str(request_number))
         await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney)
+        plaintiff_attorney_phone = attorney_registry[str(interaction.user.id)]["phone"]
+
+        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)

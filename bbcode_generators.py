@@ -56,7 +56,7 @@ def criminal_request_bbcode_generator(defendants: list, description: str, reques
 
     return bbcode
 
-def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, contract_number=None):
+def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, plaintiff_attorney_phone: int, contract_number=None):
     """bbcode generator for trial request templates"""
 
     # PREPARATION
@@ -74,30 +74,31 @@ def civil_request_bbcode_generator(trial_type: str, defendants: list, descriptio
 
     # START OF BBCODE
     # INTRO section -> partly replace with an image?
-    bbcode = "[divbox=lightblue]"
+    bbcode = "[divbox=white]"
     bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
     bbcode += "\n[center][size=150][b]LOS SANTOS CIVIL COURT DIVISION[/b][/size][/center]"
     bbcode += "\n[list=none][/list]"
     
-    bbcode += "\n[divbox=lightblue][float=left][divbox=gold]"
-    bbcode += "\n[b]" + plaintiff + "[/b][list=none][/list][center]v[/center][list=none][/list][b][center]" + defendants_list_string + "[/center][/b]"
+    bbcode += "\n[divbox=white][float=left][divbox=lightblue]"
+    bbcode += "\n[b]" + plaintiff + "[/b][center]v[/center][b][center]" + defendants_list_string + "[/center][/b]"
     bbcode += "\n[/divbox][/float]"
     
-    bbcode += "\n[float=right][divbox=gold]"
+    bbcode += "\n[float=right][divbox=lightblue]"
     bbcode += "\n[center]BENCH TRIAL REQUEST[/center]"
     bbcode += "\n[center]#" + str(request_number) + "[/center]"
-    bbcode += "\n[/divbox]"
-    
-    bbcode += "\n[/float][color=white][list=none].[/list][list=none].[/list][list=none].[/list][list=none].[/list][/color][/divbox]"
-    bbcode += "\nI, attorney " + plaintiff_attorney + ", am on this day filing a lawsuit against "+ defendants_list_string + " on behalf of " + plaintiff + " in relation to the following incident:"
+    bbcode += "\n[/divbox][/float][color=white][list=none].[/list][list=none].[/list][/color][/divbox][font=Courier New]"
+    bbcode += "\n\n\nI, attorney [highlight=yellow]" + plaintiff_attorney + "[/highlight], am on this day filing a lawsuit against [highlight=yellow]"+ defendants_list_string + "[/highlight] on behalf of [highlight=yellow]" + plaintiff + "[/highlight] in relation to the following incident."
 
     # DESCRIPTION section
-    bbcode += "\n\n[center][b][u]DESCRIPTION[/u][/b][/center]"
-    bbcode += "\n" + description
+    bbcode += "\n\n" + description
 
     if contract_number:
         bbcode += "\n\n\n\nThe contract in question is registered with the government of San Andreas as contract #" + contract_number
 
+    bbcode += "\n\nRespectfully submitted,"
+    bbcode += "\n" + plaintiff_attorney
+    bbcode += "\n" + plaintiff_attorney
+    bbcode += "[/font]"
     return bbcode
 
 

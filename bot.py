@@ -145,7 +145,7 @@ async def validate_trial_request(ctx, request_number: str):
     # if not, ask if the user wants to reject or accept it
     global request_being_validated
     request_being_validated = request_number
-    await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=3)
+    await ctx.respond("Please select what to do with this trial request...", view=validate_view(), ephemeral=True, delete_after=10)
 
 @bot.slash_command(name = "add-evidence", description = "Add evidence to an ongoing case.")
 async def add_evidence(ctx, request_number: str):
@@ -216,7 +216,10 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
     else:
         embed_colour = 0x4666FF
 
-    embedVar = discord.Embed(title="Trial request #" + request_number + " details:", description=trial_info["description"])
+    if trial_info["type"] == "Criminal":
+        embedVar = discord.Embed("Criminal trial request #" + request_number, description=trial_info["description"])
+    else:
+        embedVar = discord.Embed(title=trial_info["type"] + " lawsuit - Case #" + request_number, description=trial_info["description"])
 
     # add corresponding colour
     embedVar.color = embed_colour
@@ -229,21 +232,20 @@ async def request_details(ctx, request_number: Option(int, "If you want informat
         title = "Defendants"
         defendant_string = ", ".join(trial_info["defendants"])
 
+    if trial_info["type"] == "Criminal":
+        embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
+    else:
+        embedVar.add_field(name="Plaintiff's Attorney", value="<@"+str((trial_info["plaintiff_attorney"]))+">", inline=True)
+        embedVar.add_field(name="Plaintiff", value=trial_info["plaintiff"], inline=True)
+
     embedVar.add_field(name=title, value=defendant_string, inline=True)
-    if "plaintiff" in trial_info:
-        if trial_info["type"] == "Criminal":
-            embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
-        else:
-            embedVar.add_field(name="Plaintiff", value="<@"+str((trial_info["plaintiff"]))+">", inline=True)
+
     if "defense" in trial_info:
         embedVar.add_field(name="Defense", value="<@"+str((trial_info["defense"]))+">", inline=True)
     if "judge" in trial_info:
         embedVar.add_field(name="Judge", value="<@"+str((trial_info["judge"]))+">", inline=True)
-    if "prosecutor" in trial_info:
-        embedVar.add_field(name="Prosecutor", value="<@"+str((trial_info["prosecutor"]))+">", inline=True)
 
-
-    if type == "criminal":
+    if trial_info["type"] == "Criminal":
         # format charges and pleas together
         charges_and_pleas = ""
         for iterator, charge in enumerate(trial_info["charges"]):
@@ -432,7 +434,8 @@ class trial_request_contract_modal(discord.ui.Modal):
         save_data("history")
 
         channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
-        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created contract dispute lawsuit - case #" + str(request_number))
+        await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, contract_number)
         code_snippet = format_to_code(bbcode)
@@ -458,7 +461,7 @@ class trial_request_tort_modal(discord.ui.Modal):
         defendants = [i.strip() for i in defendants] # clean up list
         py_timestamp = datetime.now() # get current timestamp
         request_number = number_generator() # generate a unique 6-digit case number
-        plaintiff_attorney = interaction.user.name
+        plaintiff_attorney = interaction.user.nick # get user's nickname
 
         # save data to history
         history[request_number] = {}
@@ -473,7 +476,8 @@ class trial_request_tort_modal(discord.ui.Modal):
         save_data("history")
 
         channel = bot.get_channel(CIVIL_TRIAL_MANAGEMENT_CHANNEL)
-        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created civil trial request #" + str(request_number))
+        await channel.send("Attorney <@" + str(interaction.user.id) + "> has created a tort lawsuit - case #" + str(request_number))
+        await channel.send("Please use `/info request_number:" + str(request_number) + "` for more information.")
 
         bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney)
         code_snippet = format_to_code(bbcode)

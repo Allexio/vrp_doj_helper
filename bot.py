@@ -29,6 +29,7 @@ request_being_rebutted = 000000
 # if a judge is currently validating a request, his name will be stored here
 validating_judge = ""
 
+
 bot = discord.Bot()
 
 def load_data() -> dict:
@@ -160,7 +161,7 @@ async def add_evidence(ctx, request_number: str):
         await ctx.respond("This request has been already been closed by <@" + str(history[request_number]["judge"]) + "> and therefore you can not add evidence to it.", ephemeral=True)
         return
 
-    modal = add_evidence_modal(title="Add evidence to a case")
+    modal = add_evidence_modal(title="Add evidence to a case", request_number=request_number)
     await ctx.send_modal(modal)
 
 @bot.slash_command(name = "info", description = "Request details of a case or user")
@@ -315,20 +316,48 @@ class email_modal(discord.ui.Modal):
         await interaction.response.send_message(bbcode_email, ephemeral=True)
 
 class add_evidence_modal(discord.ui.Modal):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, request_number: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.add_item(discord.ui.InputText(label="Evidence label"))
         self.add_item(discord.ui.InputText(label="Link to photographic or video evidence", required=False))
         self.add_item(discord.ui.InputText(label="Description of the evidence / Text", style=discord.InputTextStyle.long))
+        self.request_number = request_number
 
     async def callback(self, interaction: discord.Interaction):
         
         evidence_label = self.children[0].value
         media_url = self.children[1].value
         description = self.children[2].value
+        request_number = self.request_number
 
-        await interaction.response.send_message("This is not implemented yet, but will be soon. Check back later.", ephemeral=True)
+        # If this is the first piece of evidence, create the evidence list
+        if "evidence" not in history[request_number]:
+            history[request_number]["evidence"] = []
+
+        history[request_number]["evidence"].append(evidence_label)
+        save_data("history")
+
+        if len(history[request_number]["evidence"]) == 1:
+            exhibit_counter = "A"
+        elif len(history[request_number]["evidence"]) == 2:
+            exhibit_counter = "B"
+        elif len(history[request_number]["evidence"]) == 3:
+            exhibit_counter = "C"
+        elif len(history[request_number]["evidence"]) == 4:
+            exhibit_counter = "D"
+        elif len(history[request_number]["evidence"]) == 5:
+            exhibit_counter = "E"
+        elif len(history[request_number]["evidence"]) == 6:
+            exhibit_counter = "F"
+        elif len(history[request_number]["evidence"]) == 7:
+            exhibit_counter = "G"
+
+        bbcode = evidence_add_bbcode_generator(history[request_number]["type"], history[request_number]["defendants"], description, request_number, history[request_number]["plaintiff"], exhibit_counter, evidence_label, media_url)
+        code_snippet = format_to_code(bbcode)
+        request_response = "Added Exhibit " + exhibit_counter + " to case #" + str(request_number) + "\n" + code_snippet
+
+        await interaction.response.send_message(request_response, ephemeral=True)
 
 class recruitment_modal(discord.ui.Modal):
     def __init__(self, *args, **kwargs) -> None:
@@ -405,7 +434,6 @@ class trial_request_contract_modal(discord.ui.Modal):
         self.add_item(discord.ui.InputText(label="Name(s) of the defendant(s) (comma-separated)"))
         self.add_item(discord.ui.InputText(label="Short description of the incident", style=discord.InputTextStyle.long))
         self.add_item(discord.ui.InputText(label="Number of the contract (5-digit)"))
-        
 
     async def callback(self, interaction: discord.Interaction):
         
@@ -444,7 +472,7 @@ class trial_request_contract_modal(discord.ui.Modal):
         except KeyError:
             plaintiff_attorney_address = None
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number, plaintiff_attorney_address)
+        bbcode = civil_request_bbcode_generator(defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, contract_number, plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)
@@ -492,7 +520,7 @@ class trial_request_tort_modal(discord.ui.Modal):
         except KeyError:
             plaintiff_attorney_address = None
 
-        bbcode = civil_request_bbcode_generator(type, defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, plaintiff_attorney_address=plaintiff_attorney_address)
+        bbcode = civil_request_bbcode_generator(defendants, description, request_number, plaintiff, plaintiff_attorney, plaintiff_attorney_phone, plaintiff_attorney_address=plaintiff_attorney_address)
         code_snippet = format_to_code(bbcode)
         request_response = "Created request #" + str(request_number) + "\n" + code_snippet
         await interaction.response.send_message(request_response, ephemeral=True)

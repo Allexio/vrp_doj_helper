@@ -56,21 +56,10 @@ def criminal_request_bbcode_generator(defendants: list, description: str, reques
 
     return bbcode
 
-def civil_request_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, plaintiff_attorney_phone: int, contract_number=None, plaintiff_attorney_address=None):
+def civil_request_bbcode_generator(defendants: list, description: str, request_number: int, plaintiff: str, plaintiff_attorney: str, plaintiff_attorney_phone: int, contract_number=None, plaintiff_attorney_address=None):
     """bbcode generator for trial request templates"""
 
-    # PREPARATION
-
-    if len(defendants) > 1:
-        plural = "s"
-        reverse_plural = ""
-    else:
-        plural = ""
-        reverse_plural = "s"
-
-    join_string = "; "
-    defendants_list_string = join_string.join(defendants)
-
+    defendants_list_string = "; ".join(defendants)
 
     # START OF BBCODE
     # INTRO section -> partly replace with an image?
@@ -100,6 +89,55 @@ def civil_request_bbcode_generator(trial_type: str, defendants: list, descriptio
     if plaintiff_attorney_address:
         bbcode += "\n" + plaintiff_attorney_address
     bbcode += "\nPhone number: " + plaintiff_attorney_phone
+    bbcode += "[/font]"
+    return bbcode
+
+def evidence_add_bbcode_generator(trial_type: str, defendants: list, description: str, request_number: int, plaintiff: str, exhibit_counter: str, evidence_label: str, media_url: str):
+    """bbcode generator for trial request templates"""
+
+    # PREPARATION
+
+    if len(defendants) > 1:
+        plural = "s"
+        reverse_plural = ""
+    else:
+        plural = ""
+        reverse_plural = "s"
+
+    join_string = "; "
+    defendants_list_string = join_string.join(defendants)
+
+    
+
+    # START OF BBCODE
+    # INTRO section -> partly replace with an image?
+    bbcode = "[divbox=white]"
+    bbcode += "\n[center][size=150][b]DISTRICT COURT OF GREATER LOS SANTOS[/b][/size][/center]"
+    bbcode += "\n[center][size=150][b]LOS SANTOS " + trial_type.upper() + " COURT DIVISION[/b][/size][/center]"
+    bbcode += "\n[list=none][/list]"
+    
+    bbcode += "\n[divbox=white][float=left][divbox=lightblue]"
+    bbcode += "\n[b]" + plaintiff + "[/b][center]v[/center][b][center]" + defendants_list_string + "[/center][/b]"
+    bbcode += "\n[/divbox][/float]"
+    
+    bbcode += "\n[float=right][divbox=lightblue]"
+    bbcode += "\n[center]TRIAL REQUEST[/center]"
+    bbcode += "\n[center]#" + str(request_number) + "[/center]"
+    bbcode += "\n[/divbox][/float][color=white][list=none].[/list][list=none].[/list][/color][/divbox][font=Courier New]"
+
+    # evidence counter
+    bbcode += "\nEXHIBIT " + exhibit_counter + ": " + evidence_label
+
+    # evidence link if needed
+    if media_url:
+        if "youtu" in media_url:
+            bbcode += "\n\n"+ media_url
+        else:
+            bbcode += "\n\n[img]"+ media_url +"[/img]"
+
+    # evidence description
+    bbcode += "\n\n[i]" + description + "[/i]"
+
     bbcode += "[/font]"
     return bbcode
 

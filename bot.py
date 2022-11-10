@@ -74,7 +74,7 @@ async def on_ready():
 
 @bot.slash_command(name = "help", description = "Get some help on using the bot")
 async def help(ctx):
-    await ctx.respond("Hey there and thanks for using the DoJ template creator. You can contact <@108986791696048128> if you need any information regarding this bot.")
+    await ctx.respond("Hey there and thanks for using the DoJ template creator. You can contact <@108986791696048128> if you need any information regarding this bot.", ephemeral=True)
 
 @bot.slash_command(name = "email-recruitment", description = "Create a new application response (validation or rejection) email from a bbcode template.")
 async def email_recruitment(ctx):

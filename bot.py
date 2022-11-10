@@ -94,7 +94,7 @@ async def admit_attorney(ctx, attorney: discord.Option(discord.User)):
     else:
         attorney_registry[str(attorney.id)] = {} # add a new line in DB
         save_data("registry")
-        await attorney.send("Hi,\nYou have been admitted as an attorney. Please use the `/register` command to fully register.\nThank you")
+        await attorney.send("Hi,\nYou have been admitted as an attorney. Please use the `/register` command *in the DoJ discord* (any channel will do) to fully register.\nThank you")
         await ctx.respond("You have registered  <@" + str(attorney.id) + "> as an admitted attorney.", ephemeral=True)
 
 @bot.slash_command(name = "register", description = "Register as an attorney")

@@ -1,14 +1,1 @@
-{
-    "297152": {
-        "description": "Defendants' failure to deliver on contractual obligations. Defendants' failure to register business as a Partnership and not as a Sole Proprietorship which the business is registered as. Defendants' failure to deliver on the return on investment owed to the plaintiff.",
-        "defendants": [
-            "Solomon Goldestein and Gold Interiors"
-        ],
-        "state": "new",
-        "plaintiff": "Percival Banks",
-        "plaintiff_attorney": 747988746565320826,
-        "created_timestamp": 1667670636.840696,
-        "contract_number": "92838",
-        "type": "Contract"
-    }
-}
+{"297152": {"description": "Defendants' failure to deliver on contractual obligations. Defendants' failure to register business as a Partnership and not as a Sole Proprietorship which the business is registered as. Defendants' failure to deliver on the return on investment owed to the plaintiff.", "defendants": ["Solomon Goldestein and Gold Interiors"], "state": "new", "plaintiff": "Percival Banks", "plaintiff_attorney": 747988746565320826, "created_timestamp": 1667670636.840696, "contract_number": "92838", "type": "Contract", "evidence": ["Carbon Copy of Contract from Notary & Contracts Database.", "Business Registration - Gold Interiors"]}}
